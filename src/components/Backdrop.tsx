@@ -45,7 +45,18 @@ export default function Backdrop({ className, media, scene, blur, dim }: Props) 
   const k = Math.min(blur / 20, 1)
   const over = Math.min(8, blur / 5)
   const filter = blur > 0 ? `blur(${blur}px) saturate(${1 + 0.3 * k}) brightness(${1 - 0.15 * k})` : 'none'
-  const fit = { inset: `-${over}%`, width: `${100 + 2 * over}%`, height: `${100 + 2 * over}%` }
+  // Keep the enlarged wallpaper centered as blur changes. Expanding via inset + width/height
+  // can trigger positioning/rounding differences in browsers, making the image drift sideways.
+  const fit = {
+    inset: 'auto',
+    left: '50%',
+    top: '50%',
+    width: `${100 + 2 * over}%`,
+    height: `${100 + 2 * over}%`,
+    transform: 'translate3d(-50%, -50%, 0)',
+    backfaceVisibility: 'hidden' as const,
+    WebkitBackfaceVisibility: 'hidden' as const,
+  }
   const style = { filter, ...fit }
   const shade = <div className="absolute inset-0" style={{ backgroundColor: `rgba(3, 9, 14, ${dim})` }} />
   return (

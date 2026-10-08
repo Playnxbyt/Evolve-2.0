@@ -242,6 +242,7 @@ export default function Home({ state, wall, scene, onSetScene, onSetWallFile, on
   // Parallax follows the pointer at most once per frame, and sits still while the card is resizing.
   const nudgeFrame = useRef(0)
   const nudge = (e: PointerEvent<HTMLElement>) => {
+    if (e.pointerType === 'touch' || isTouchDevice()) return
     const el = heroRef.current
     if (!el || nudgeFrame.current || el.hasAttribute('data-moving')) return
     const { clientX, clientY } = e

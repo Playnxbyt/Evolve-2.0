@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, type CSSProperties } from 'react'
+import { isTouchDevice } from '../lib/device'
 
 export const THEMES = [
   { id: 'dusk', label: 'Dusk', v: { '--sky1': '#050b18', '--sky2': '#15283f', '--sky3': '#6a4d4a', '--glow': '91,210,191', '--aur1': '61,220,151', '--aur2': '59,140,255', '--m-far': '#1b3441', '--m-mid': '#0d202b', '--m-near': '#040b10', '--lit': '#d3dedc' } },
@@ -45,7 +46,7 @@ const par = (x: number, y: number): CSSProperties => ({
 export default function LiveScene({ theme, lite = false, track = false }: { theme: string; lite?: boolean; /** Drive the parallax from the pointer anywhere in the window (for full-page backdrops). */ track?: boolean }) {
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!track || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!track || isTouchDevice() || window.matchMedia('(prefers-reduced-motion: reduce)').matches || !window.matchMedia('(pointer: fine)').matches) return
     const el = root.current
     if (!el) return
     let frame = 0, x = 0, y = 0
@@ -55,6 +56,7 @@ export default function LiveScene({ theme, lite = false, track = false }: { them
       el.style.setProperty('--py', y.toFixed(3))
     }
     const move = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return
       if (document.body.classList.contains('effects-off') || document.body.classList.contains('perf-lite')) return
       x = (e.clientX / window.innerWidth - 0.5) * 2
       y = (e.clientY / window.innerHeight - 0.5) * 2
@@ -71,14 +73,17 @@ export default function LiveScene({ theme, lite = false, track = false }: { them
   }, [track])
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const t = THEMES.find(x => x.id === theme) ?? THEMES[0]
+  const isTouch = isTouchDevice()
   const art = useMemo(() => {
     const r = rng(7)
+    const starCount = isTouch ? 28 : 70
+    const flyCount = isTouch ? 6 : 14
     return {
-      stars: Array.from({ length: 70 }, () => ({ x: r() * 100, y: r() * 58, s: 1 + r() * 1.6, d: 2.5 + r() * 4, dl: -r() * 6 })),
-      flies: Array.from({ length: 14 }, () => ({ x: 8 + r() * 84, y: 6 + r() * 26, d: 9 + r() * 9, dl: -r() * 14, dx: (r() - 0.5) * 70 })),
+      stars: Array.from({ length: starCount }, () => ({ x: r() * 100, y: r() * 58, s: 1 + r() * 1.6, d: 2.5 + r() * 4, dl: -r() * 6 })),
+      flies: Array.from({ length: flyCount }, () => ({ x: 8 + r() * 84, y: 6 + r() * 26, d: 9 + r() * 9, dl: -r() * 14, dx: (r() - 0.5) * 70 })),
       far: ridge(3, 372, 62, 48), mid: ridge(11, 440, 48, 64), near: ridge(5, 548, 22, 44), pines: pines(21, 46),
     }
-  }, [])
+  }, [isTouch])
 
   return (
     <div ref={root} aria-hidden="true" className="scene absolute inset-0 overflow-hidden" style={t.v as unknown as CSSProperties}>

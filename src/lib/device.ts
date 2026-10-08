@@ -24,6 +24,20 @@ export function initDevice() {
   }
   apply()
   window.matchMedia('(max-width: 1023px)').addEventListener?.('change', apply)
+
+  // Seamless active-scroll optimization: marks the root during active scrolling
+  // so GPU-intensive ambient animations pause and the compositor stays at 60/120fps.
+  let scrollTimer = 0
+  const onScroll = () => {
+    if (!root.hasAttribute('data-scrolling')) {
+      root.setAttribute('data-scrolling', 'true')
+    }
+    window.clearTimeout(scrollTimer)
+    scrollTimer = window.setTimeout(() => {
+      root.removeAttribute('data-scrolling')
+    }, 120)
+  }
+  window.addEventListener('scroll', onScroll, { passive: true })
 }
 
 /** True on phones and tablets (re-evaluates when the window crosses the breakpoint). */

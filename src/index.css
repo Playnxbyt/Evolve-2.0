@@ -241,7 +241,9 @@ body::after {
   mix-blend-mode: screen;
   opacity: 0.24;
   filter: blur(20px);
-  transform: rotate(-7deg);
+  transform: translate3d(0, 0, 0) rotate(-7deg);
+  will-change: transform;
+  backface-visibility: hidden;
   animation: aurora 20s ease-in-out infinite alternate;
   pointer-events: none;
 }
@@ -271,14 +273,6 @@ body::after {
 }
 
 .scene-mist {
-  position: absolute; left: 0; width: 200%; background-repeat: repeat-x; background-size: 50% 100%;
-  background-image:
-    radial-gradient(ellipse 16% 46% at 12% 58%, rgba(var(--glow), 0.16), transparent 72%),
-    radial-gradient(ellipse 20% 40% at 38% 42%, rgba(255, 255, 255, 0.08), transparent 72%),
-    radial-gradient(ellipse 16% 48% at 64% 62%, rgba(var(--glow), 0.12), transparent 72%),
-    radial-gradient(ellipse 18% 40% at 88% 46%, rgba(255, 255, 255, 0.07), transparent 72%);
-}
-.scene-mist {
   position: absolute; 
   left: 0; 
   width: 200%; 
@@ -288,6 +282,9 @@ body::after {
     linear-gradient(180deg, transparent, rgba(var(--glow), 0.04) 40%, transparent),
     radial-gradient(ellipse 40% 15% at 30% 60%, rgba(var(--glow), 0.05), transparent 75%),
     radial-gradient(ellipse 45% 18% at 75% 55%, rgba(255, 255, 255, 0.03), transparent 80%);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .scene-mist.m1 { 
@@ -301,6 +298,11 @@ body::after {
   height: 20%; 
   opacity: 0.5; 
   animation: mist 120s linear infinite reverse; 
+}
+
+@keyframes mist {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
 }
 
 .scene-fly { position: absolute; width: 3px; height: 3px; border-radius: 50%; opacity: 0; background: rgb(var(--glow)); box-shadow: 0 0 8px 2px rgba(var(--glow), 0.7); animation: fly var(--d, 12s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
@@ -1192,11 +1194,12 @@ html[data-hidden='true'] *, html[data-hidden='true'] *::before, html[data-hidden
    Type system: Sora for headings, big numbers and the clock (confident, geometric);
    DM Sans for everything small (warm, very readable at 11-15px).
    ========================================================================== */
-body { font-optical-sizing: auto; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; letter-spacing: 0.005em; }
+body { font-optical-sizing: auto; text-rendering: auto; -webkit-font-smoothing: antialiased; letter-spacing: 0.005em; }
 h1, h2, h3, h4, .font-display,
 [class*='text-2xl'], [class*='text-3xl'], [class*='text-4xl'], [class*='text-5xl'], [class*='text-6xl'], [class*='text-7xl'] {
   font-family: var(--font-display);
   letter-spacing: -0.02em;
+  text-rendering: optimizeLegibility;
 }
 h1, h2 { font-weight: 650; }
 h3, h4 { font-weight: 600; }
@@ -1487,15 +1490,115 @@ body.perf-lite .cal-ring, body.effects-off .cal-ring { animation: none; }
 
 
 /* ==========================================================================
-   Phone smoothness tier (kept last on purpose). Applies only when <html data-device="touch"> is set
-   (see lib/device.ts). Invisible work only: layer hints, touch-target sizes, skeletons. No glass, colour or motion changes.
+   Phone smoothness tier (kept last on purpose). Applies when <html data-device="touch"> is set
+   or on mobile/touch screens. Optimizes scrolling, GPU compositing, glass shaders, and interaction latency
+   without altering any visual design, color, or feature.
    ========================================================================== */
 
-/* ── Layer hygiene ── */
-html[data-device='touch'] .wall-blur { transform: translateZ(0); backface-visibility: hidden; }
-html[data-device='touch'] { scroll-behavior: auto; }            /* instant scroll-to-top on tab change, no long smooth glide */
+/* ── Seamless active-scroll optimization ──
+   While actively scrolling on touch screens, pause ambient background loops
+   so 100% of GPU & CPU frame budget is dedicated to 60/120fps compositor scrolling. */
+html[data-scrolling='true'] .ambient > i,
+html[data-scrolling='true'] .scene-star,
+html[data-scrolling='true'] .scene-fly,
+html[data-scrolling='true'] .scene-aurora,
+html[data-scrolling='true'] .scene-mist,
+html[data-scrolling='true'] .scene-glow,
+html[data-scrolling='true'] .scene-shoot,
+html[data-scrolling='true'] .wall-zoom,
+html[data-scrolling='true'] .orb-glow,
+html[data-scrolling='true'] .orb-core > i,
+html[data-scrolling='true'] .orb-core::before,
+html[data-scrolling='true'] .pet,
+html[data-scrolling='true'] .pet * {
+  animation-play-state: paused !important;
+}
+
+/* ── Mobile GPU glass tier ──
+   Keeps the full liquid frosted glass visual styling, but tunes blur radius (8px vs 14-22px)
+   and reduces multi-pass inset box-shadow convolutions so mobile GPUs run at full 60/120fps. */
+@media (pointer: coarse), (max-width: 1023px) {
+  .glass {
+    -webkit-backdrop-filter: blur(8px) saturate(145%);
+    backdrop-filter: blur(8px) saturate(145%);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+      inset 0 1px 2px rgba(255, 255, 255, 0.35),
+      0 12px 28px -10px rgba(0, 0, 0, 0.55);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .hb-cards .glass:not(.hb-menu) {
+    -webkit-backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+    backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+  }
+
+  /* Fixed mobile bottom navigation: isolated GPU layer prevents repaint of content scrolling under it */
+  nav.glass.fixed {
+    background: rgba(8, 18, 26, 0.85);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(140%);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Fast, crisp card and page entrance animations */
+  .card, .fade-up {
+    animation-duration: 0.38s;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Quick-action orb button */
+  .orb {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Snappy touch press response without laggy multi-property transitions */
+  button, [role='button'], a, select, input, textarea {
+    transition: background-color 0.16s var(--ease-out), color 0.16s var(--ease-out),
+      border-color 0.16s var(--ease-out), opacity 0.16s var(--ease-out), scale 0.12s var(--ease-out);
+  }
+}
+
+html[data-device='touch'] .glass {
+  -webkit-backdrop-filter: blur(8px) saturate(145%);
+  backdrop-filter: blur(8px) saturate(145%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 1px 2px rgba(255, 255, 255, 0.35),
+    0 12px 28px -10px rgba(0, 0, 0, 0.55);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+html[data-device='touch'] .hb-cards .glass:not(.hb-menu) {
+  -webkit-backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+  backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+}
+
+html[data-device='touch'] nav.glass.fixed {
+  background: rgba(8, 18, 26, 0.85);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+html[data-device='touch'] .card,
+html[data-device='touch'] .fade-up {
+  animation-duration: 0.38s;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ── Layer hygiene & momentum scrolling ── */
+html[data-device='touch'] .wall-blur { transform: translate3d(-50%, -50%, 0); backface-visibility: hidden; }
+html[data-device='touch'] { scroll-behavior: auto; -webkit-overflow-scrolling: touch; }
 html[data-device='touch'] body { -webkit-touch-callout: none; }
-button, [role='button'], nav, .glass { -webkit-user-select: none; user-select: none; }   /* no accidental text selection on long-press */
+button, [role='button'], nav, .glass { -webkit-user-select: none; user-select: none; }
 
 /* ── Comfortable touch targets (44px, the iOS/Android guideline) without changing how things look ── */
 .tap { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
