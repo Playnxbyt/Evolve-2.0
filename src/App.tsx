@@ -11,12 +11,14 @@ const loaders = {
   Habits: () => import('./components/Habits'),
   Analytics: () => import('./components/Analytics'),
   Calendar: () => import('./components/Calendar'),
+  Spaces: () => import('./components/Spaces'),
   Evolution: () => import('./components/Evolution'),
   Profile: () => import('./components/Profile'),
 }
 const Habits = lazy(loaders.Habits)
 const Analytics = lazy(loaders.Analytics)
 const Calendar = lazy(loaders.Calendar)
+const Spaces = lazy(loaders.Spaces)
 const Evolution = lazy(loaders.Evolution)
 const Profile = lazy(loaders.Profile)
 import ReminderToasts from './components/ReminderToasts'
@@ -188,6 +190,8 @@ export default function App() {
         return { ...g, ...f, createdAt: relinked ? startOfDay(new Date()) : g.createdAt }
       }),
     }))
+  const updateSpaces = useCallback((spaces: AppState['spaces']) => setState(s => ({ ...s, spaces })), [])
+
   const removeGoal = (id: string) => setState(s => ({ ...s, goals: s.goals.filter(g => g.id !== id) }))
 
   const shell = useMemo(() => ({ state, events: cal.events, prefs, updatePrefs, go: setTab, toggle, add }), [state, cal.events, prefs, updatePrefs])
@@ -235,6 +239,7 @@ export default function App() {
             <Evolution state={state} onNavigate={setTab} onAddGoal={addGoal} onUpdateGoal={updateGoal} onRemoveGoal={removeGoal} />
           )}
           {shownTab === 'Calendar' && <Calendar state={state} events={cal} onToggle={toggle} />}
+          {shownTab === 'Spaces' && <Spaces spaces={state.spaces} onChange={updateSpaces} />}
           {shownTab === 'Profile' && (
             <Profile
               name={state.name}
@@ -249,7 +254,7 @@ export default function App() {
               onScene={setScene}
             />
           )}
-          {!['Home', 'Habits', 'Analytics', 'Calendar', 'Evolution', 'Profile'].includes(shownTab) && (
+          {!['Home', 'Habits', 'Analytics', 'Calendar', 'Spaces', 'Evolution', 'Profile'].includes(shownTab) && (
             <>
               <TopBar name={state.name}>
                 <h1 className="text-3xl font-bold tracking-tight">{shownTab}</h1>

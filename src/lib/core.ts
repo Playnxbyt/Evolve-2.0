@@ -5,6 +5,35 @@ export type CatId = 'health' | 'mindset' | 'productivity' | 'learning' | 'lifest
 export type Priority = 'low' | 'medium' | 'high'
 export type WeekDay = 0 | 1 | 2 | 3 | 4 | 5 | 6 // 0 = Sunday
 
+export type SpaceItemType = 'checklist' | 'list' | 'note'
+
+export interface SpaceItem {
+  id: string
+  type: SpaceItemType
+  title: string
+  content: string
+  done: boolean
+  days?: WeekDay[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface SpaceSection {
+  id: string
+  title: string
+  items: SpaceItem[]
+}
+
+export interface Space {
+  id: string
+  name: string
+  icon: IconName
+  description?: string
+  sections: SpaceSection[]
+  createdAt: number
+  updatedAt: number
+}
+
 export interface Task {
   id: string
   catId: CatId
@@ -84,6 +113,7 @@ export interface AppState {
   moodLog: Record<string, string>
   name: string
   goals: Goal[]
+  spaces: Space[]
 }
 
 export interface HabitFields {
@@ -121,7 +151,7 @@ const CAT_MIGRATION: Record<string, CatId> = {
   skills: 'learning',
 }
 
-const empty = (): AppState => ({ tasks: [], completions: {}, xp: 0, badges: [], moodLog: {}, name: '', goals: [] })
+const empty = (): AppState => ({ tasks: [], completions: {}, xp: 0, badges: [], moodLog: {}, name: '', goals: [], spaces: [] })
 
 function parseTask(t: any): Task {
   const rawDays = Array.isArray(t.days) ? t.days.filter((x: any) => Number.isInteger(x) && x >= 0 && x <= 6) : []
@@ -136,6 +166,40 @@ function parseTask(t: any): Task {
     duration: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : undefined,
     days: rawDays.length > 0 && rawDays.length < 7 ? (rawDays as WeekDay[]) : undefined,
     time: typeof t.time === 'string' && /^\d{2}:\d{2}$/.test(t.time) ? t.time : undefined,
+  }
+}
+
+function parseSpaceItem(i: any, index = 0): SpaceItem {
+  const type: SpaceItemType = i?.type === 'note' || i?.type === 'list' ? i.type : 'checklist'
+  const rawDays = Array.isArray(i?.days) ? i.days.filter((x: any) => Number.isInteger(x) && x >= 0 && x <= 6) : []
+  const now = Date.now()
+  return {
+    id: String(i?.id ?? `space-item-${index}`),
+    type,
+    title: String(i?.title ?? (type === 'note' ? 'Untitled note' : 'Untitled item')).slice(0, 120),
+    content: String(i?.content ?? '').slice(0, 4000),
+    done: Boolean(i?.done),
+    days: rawDays.length ? Array.from(new Set(rawDays)) as WeekDay[] : undefined,
+    createdAt: Number(i?.createdAt) || now,
+    updatedAt: Number(i?.updatedAt) || now,
+  }
+}
+
+function parseSpace(s: any, index = 0): Space {
+  const sections: SpaceSection[] = (Array.isArray(s?.sections) ? s.sections : []).map((section: any, si: number) => ({
+    id: String(section?.id ?? `space-section-${index}-${si}`),
+    title: String(section?.title ?? 'Section').slice(0, 100),
+    items: Array.isArray(section?.items) ? section.items.map((i: any, ii: number) => parseSpaceItem(i, ii)) : [],
+  }))
+  const now = Date.now()
+  return {
+    id: String(s?.id ?? `space-${index}`),
+    name: String(s?.name ?? 'Space').slice(0, 60),
+    icon: (['dumbbell', 'leaf', 'book', 'briefcase', 'bulb', 'note', 'goal', 'calendar'] as string[]).includes(String(s?.icon)) ? String(s.icon) as IconName : 'note',
+    description: typeof s?.description === 'string' ? s.description.slice(0, 180) : undefined,
+    sections,
+    createdAt: Number(s?.createdAt) || now,
+    updatedAt: Number(s?.updatedAt) || now,
   }
 }
 
@@ -178,6 +242,7 @@ export function loadState(): AppState {
       moodLog: p.moodLog && typeof p.moodLog === 'object' ? p.moodLog : {},
       name: typeof p.name === 'string' ? p.name.slice(0, 40) : '',
       goals: Array.isArray(p.goals) ? p.goals.map(parseGoal) : [],
+      spaces: Array.isArray(p.spaces) ? p.spaces.map(parseSpace) : [],
     }
   } catch {
     return empty()

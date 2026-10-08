@@ -6,11 +6,12 @@ export const NAV: { id: string; icon: IconName }[] = [
   { id: 'Habits', icon: 'habits' },
   { id: 'Analytics', icon: 'analytics' },
   { id: 'Calendar', icon: 'calendar' },
+  { id: 'Spaces', icon: 'note' },
   { id: 'Evolution', icon: 'evolution' },
   { id: 'Profile', icon: 'profile' },
 ]
 
-export type Tab = 'Home' | 'Habits' | 'Analytics' | 'Calendar' | 'Evolution' | 'Profile'
+export type Tab = 'Home' | 'Habits' | 'Analytics' | 'Calendar' | 'Spaces' | 'Evolution' | 'Profile'
 
 interface Props {
   tab: Tab
@@ -71,7 +72,7 @@ export default function Sidebar({ tab, onChange, collapsed, onToggle }: Props) {
         </div>
       </aside>
 
-      <nav aria-label="Primary" className="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 grid grid-cols-6 rounded-2xl lg:hidden">
+      <nav aria-label="Primary" className="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 grid grid-cols-7 rounded-2xl lg:hidden">
         {NAV.map(n => (
           <button
             key={n.id}
