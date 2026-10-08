@@ -11,16 +11,15 @@ function WallVideo({ url, style }: { url: string; style: CSSProperties }) {
   useEffect(() => {
     const v = ref.current
     if (!v) return
-    // Rests while the app is in the background, and for the fraction of a second a card or the sidebar is resizing
-    // (re-blurring a playing video on every resized frame is what made those animations stutter on phones).
+    // Rests while the app is in the background, and while the sidebar is resizing. Cards expanding (data-motion) no longer pause it.
     const root = document.documentElement
     const sync = () => {
-      const resting = document.hidden || root.hasAttribute('data-motion') || root.hasAttribute('data-sb-moving')
+      const resting = document.hidden || root.hasAttribute('data-sb-moving')
       if (resting) v.pause(); else v.play().catch(() => { /* needs a gesture: stays on its first frame */ })
     }
     document.addEventListener('visibilitychange', sync)
     const mo = new MutationObserver(sync)
-    mo.observe(root, { attributes: true, attributeFilter: ['data-motion', 'data-sb-moving'] })
+    mo.observe(root, { attributes: true, attributeFilter: ['data-sb-moving'] })
     return () => { document.removeEventListener('visibilitychange', sync); mo.disconnect() }
   }, [])
   return (

@@ -403,7 +403,7 @@ body::after {
   transition: opacity 0.36s ease var(--d), transform 0.48s cubic-bezier(0.22, 1, 0.36, 1) var(--d), background-color 0.2s ease;
 }
 /* While the hero card is resizing, park the always-on background loops so the resize gets the whole frame budget. */
-[data-moving] [class*='scene-'], [data-moving] .glass-live::after, [data-moving] .wall-zoom { animation-play-state: paused !important; }
+[data-moving] .glass-live::after { animation-play-state: paused !important; }
 
 /* ───────── Digital clock ───────── */
 .clk { --clk: #64e8d3; display: inline-flex; align-items: baseline; gap: 0.3em; font-size: 2.25rem; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--color-ink); }
@@ -1533,7 +1533,8 @@ button, [role='button'], nav, .glass { -webkit-user-select: none; user-select: n
    While a card or the sidebar is changing height (<html data-motion>, see lib/motion.ts) the always-on loops rest
    for the half second it takes, so the blur behind the glass is not recomputed against moving pictures every frame.
    ========================================================================== */
-html[data-motion] [class*='scene-'], html[data-motion] .glass-live::after, html[data-motion] .wall-zoom, html[data-motion] .ambient > i,
+/* (the wallpaper itself - video, live scene, zoom, ambient light - deliberately keeps playing) */
+html[data-motion] .glass-live::after,
 html[data-motion] .orb-core > i, html[data-motion] .orb-glow, html[data-motion] .pet, html[data-motion] .pet * { animation-play-state: paused !important; }
 
 /* The live scene is its own island: resizing the hero never re-lays-out or re-paints anything outside it, and vice versa. */

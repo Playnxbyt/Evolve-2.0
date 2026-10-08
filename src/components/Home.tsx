@@ -252,12 +252,8 @@ export default function Home({ state, wall, scene, onSetScene, onSetWallFile, on
       el.style.setProperty('--py', String(((clientY - r.top) / r.height - 0.5) * 2))
     })
   }
-  // While the focus list opens or closes, background loops are parked (see index.css) so the resize gets the whole frame budget.
-  const onMotion = (moving: boolean) => { heroRef.current?.toggleAttribute('data-moving', moving); setMotion('home-hero', moving)
-    // a custom video wallpaper inside the hero rests for the resize too
-    const v = heroRef.current?.querySelector('video')
-    if (v) { if (moving) v.pause(); else v.play().catch(() => { /* needs a gesture */ }) }
-  }
+  // While the focus list opens or closes, the orb/pet loops are parked (see index.css). The wallpaper (video, live scene) keeps playing.
+  const onMotion = (moving: boolean) => { heroRef.current?.toggleAttribute('data-moving', moving); setMotion('home-hero', moving) }
   const settle = () => { heroRef.current?.style.setProperty('--px', '0'); heroRef.current?.style.setProperty('--py', '0') }
   const delay = (n: number) => ({ animationDelay: `${n * 90}ms` })
   const btn = 'rounded-lg border border-white/10 px-3.5 py-2 text-sm transition-colors hover:border-teal/40 hover:text-teal'
