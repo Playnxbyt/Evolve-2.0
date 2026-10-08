@@ -175,10 +175,10 @@ export default function Analytics({ state, onNavigate }: Props) {
                   <Stat label="Scheduled" sub="every check-in this month">{month.total.possible}</Stat>
                   <Stat label="Completed" sub={`${share(month.total.done, month.total.possible)}% of the month`}>{month.total.done}</Stat>
                   <Stat label="Missed so far" sub="scheduled days that passed, not done"><span className="text-[#ff8a7a]">{month.due - month.total.done}</span></Stat>
-                  <Stat label="Still ahead" sub="scheduled days yet to come">{month.total.possible - month.due}</Stat>
+                  <Stat label="Still ahead" sub="left today and the days to come">{month.total.possible - month.due}</Stat>
                 </dl>
                 <p className="mt-4 text-[11px] leading-relaxed text-ink/45">
-                  Scheduled = Completed + Missed + Still ahead. A habit counts only on the days it repeats (a Monday and Tuesday habit adds one on each Monday and Tuesday), starting from the day you created it. {plural(month.perfectDays, 'perfect day')} so far.
+                  Scheduled = Completed + Missed + Still ahead. Today only counts as missed once the day is over. A habit counts only on the days it repeats (a Monday and Tuesday habit adds one on each Monday and Tuesday), starting from the day you created it. {plural(month.perfectDays, 'perfect day')} so far.
                 </p>
               </>
             )}

@@ -94,6 +94,18 @@ export interface GoalView {
   /** The goal links to a habit that has since been deleted. */
   orphaned: boolean
   color: string
+  /** Ambition goals: the numbers behind the journey. For count goals `support` is empty and `steps.total` is 0. */
+  steps: { done: number; total: number }
+  /** True when progress can be shown as a percentage (a count goal, or an ambition with steps). */
+  measurable: boolean
+  /** Habits that feed an ambition, with check-ins since the goal began and in the last 7 days. */
+  support: { habit: Task; total: number; week: number }[]
+  supportTotal: number
+  supportWeek: number
+  /** Days since the goal began (1 on the first day). */
+  daysIn: number
+  /** Days until the deadline (negative once passed); null without one. */
+  daysLeft: number | null
 }
 
 export interface Evolution {
@@ -136,8 +148,47 @@ export const AREAS: { id: string; label: string; basis: string; cats: CatId[] | 
   { id: 'personal', label: 'Personal', basis: 'Mindset and lifestyle habits', cats: ['mindset', 'lifestyle'] },
 ]
 
-/** Progress of one goal. A linked goal counts the habit's check-ins since the goal was created, so nothing is entered twice. */
-export function goalView(s: AppState, goal: Goal): GoalView {
+/**
+ * Progress of one goal.
+ * Count goal: a typed-in number, or the check-ins of one linked habit since the goal was created.
+ * Ambition: the share of its steps that are done. Without steps there is no percentage; the journey is
+ * shown through the habits that feed it and the days spent on it, and the goal is finished by hand.
+ */
+export function goalView(s: AppState, goal: Goal, now: Date = new Date()): GoalView {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const daysIn = Math.max(1, Math.round((today - goal.createdAt) / DAY_MS) + 1)
+  const daysLeft = goal.deadline ? Math.round((goal.deadline - today) / DAY_MS) : null
+  const weekAgo = today - 6 * DAY_MS
+
+  if (goal.kind === 'ambition') {
+    const support = goal.habitIds
+      .map(id => s.tasks.find(t => t.id === id))
+      .filter((t): t is Task => !!t)
+      .map(habit => {
+        let total = 0, week = 0
+        for (const [k, c] of Object.entries(s.completions)) {
+          if (!c[habit.id]) continue
+          const at = parseKey(k).getTime()
+          if (at >= goal.createdAt) total++
+          if (at >= weekAgo && at <= today) week++
+        }
+        return { habit, total, week }
+      })
+    const total = goal.milestones.length
+    const done = goal.milestones.filter(m => m.doneAt).length
+    const finished = !!goal.achievedAt || (total > 0 && done === total)
+    const color = goal.color ?? '#f0b45a'
+    return {
+      goal, current: done, color, habit: null, orphaned: false,
+      pct: total ? Math.round((done / total) * 100) : finished ? 100 : 0,
+      done: finished,
+      steps: { done, total }, measurable: total > 0, support,
+      supportTotal: support.reduce((n, x) => n + x.total, 0),
+      supportWeek: support.reduce((n, x) => n + x.week, 0),
+      daysIn, daysLeft,
+    }
+  }
+
   const habit = goal.habitId ? s.tasks.find(t => t.id === goal.habitId) ?? null : null
   let current = goal.current
   if (goal.habitId) {
@@ -150,6 +201,8 @@ export function goalView(s: AppState, goal: Goal): GoalView {
     orphaned: !!goal.habitId && !habit,
     pct: Math.min(100, Math.round((current / goal.target) * 100)),
     done: current >= goal.target,
+    steps: { done: 0, total: 0 }, measurable: true, support: [], supportTotal: 0, supportWeek: 0,
+    daysIn, daysLeft,
   }
 }
 
@@ -285,7 +338,7 @@ export function buildEvolution(s: AppState, now: Date): Evolution {
   // Goals and achievements. The running streak is the same one Home and Analytics show.
   const streak = currentStreak(s, now)
   longestStreak = Math.max(longestStreak, streak)
-  const goals = s.goals.map(g => goalView(s, g)).sort((a, b) => Number(a.done) - Number(b.done) || b.pct - a.pct)
+  const goals = s.goals.map(g => goalView(s, g, now)).sort((a, b) => Number(a.done) - Number(b.done) || b.pct - a.pct)
   const goalsDone = goals.filter(g => g.done).length
   const topHabit = [...perHabit.entries()].sort((a, b) => b[1] - a[1])[0]
   const nth = (n: number) => { let c = 0; for (const d of perDay) { c += d.done; if (c >= n) return d.date } return null }

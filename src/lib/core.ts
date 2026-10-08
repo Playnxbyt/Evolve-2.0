@@ -24,6 +24,16 @@ export const GOAL_TERMS: { id: GoalTerm; label: string; hint: string; empty: str
   { id: 'long', label: 'Ultimate goal', hint: 'The big one', empty: 'Set the big goal everything else is working towards' },
 ]
 
+/**
+ * 'count'    a number to reach (12 books, 60 workouts), typed in by hand or counted from one habit.
+ * 'ambition' something with no number on it (become a scholarship winner, get into a dream university).
+ *            It is followed through steps (milestones), the habits that feed it, and a journal of notes.
+ */
+export type GoalKind = 'count' | 'ambition'
+
+export interface Milestone { id: string; text: string; doneAt: number | null }
+export interface GoalNote { id: string; at: number; text: string }
+
 export interface Goal {
   id: string
   title: string
@@ -36,6 +46,34 @@ export interface Goal {
   term: GoalTerm
   /** When set, progress is not typed in: it is the number of check-ins of this habit since the goal was created. */
   habitId?: string
+  kind: GoalKind
+  /** Ambition: why this matters, shown on the goal so it is never forgotten. */
+  why?: string
+  /** Ambition: day (start of day, ms) by which you want to get there. */
+  deadline?: number
+  /** Ambition: the steps on the way. Progress is the share of steps done. */
+  milestones: Milestone[]
+  /** Ambition: habits that feed this goal. Their check-ins since the goal was created show how much you are working on it. */
+  habitIds: string[]
+  /** Ambition: dated entries (a win, a reflection, something you learned). */
+  notes: GoalNote[]
+  /** Ambition: set by hand when the goal is reached, for goals that have no steps. */
+  achievedAt?: number
+}
+
+/** What the goal form hands back. Notes and the achieved date are changed from the journey view instead. */
+export interface GoalFields {
+  kind: GoalKind
+  term: GoalTerm
+  title: string
+  target: number
+  current: number
+  unit?: string
+  habitId?: string
+  why?: string
+  deadline?: number
+  milestones: Milestone[]
+  habitIds: string[]
 }
 
 export interface AppState {
@@ -102,7 +140,20 @@ function parseTask(t: any): Task {
 }
 
 function parseGoal(g: any): Goal {
+  const milestones: Milestone[] = (Array.isArray(g.milestones) ? g.milestones : [])
+    .filter((m: any) => m && typeof m.text === 'string' && m.text.trim())
+    .map((m: any, i: number) => ({ id: String(m.id ?? `m${i}`), text: String(m.text).slice(0, 80), doneAt: m.doneAt ? Number(m.doneAt) || null : null }))
+  const notes: GoalNote[] = (Array.isArray(g.notes) ? g.notes : [])
+    .filter((n: any) => n && typeof n.text === 'string' && n.text.trim())
+    .map((n: any, i: number) => ({ id: String(n.id ?? `n${i}`), at: Number(n.at) || Date.now(), text: String(n.text).slice(0, 500) }))
   return {
+    kind: g.kind === 'ambition' ? 'ambition' : 'count',
+    why: typeof g.why === 'string' && g.why.trim() ? g.why.slice(0, 400) : undefined,
+    deadline: Number(g.deadline) > 0 ? Number(g.deadline) : undefined,
+    milestones,
+    habitIds: Array.isArray(g.habitIds) ? g.habitIds.filter((x: any) => typeof x === 'string') : [],
+    notes,
+    achievedAt: Number(g.achievedAt) > 0 ? Number(g.achievedAt) : undefined,
     id: String(g.id),
     title: String(g.title ?? 'Goal'),
     current: Math.max(0, Number(g.current) || 0),

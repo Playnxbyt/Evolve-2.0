@@ -288,7 +288,8 @@ export function buildAnalytics(s: AppState, range: RangeId, now: Date): Analytic
   const habits: HabitRow[] = active
     .map(t => {
       const x = habitTally(s, t, start, today)
-      return { t, ...x, missed: x.possible - x.done }
+      const pendingToday = isScheduledOn(t, today) && today.getTime() >= t.createdAt && !habitDone(s, t, today) ? 1 : 0
+      return { t, ...x, missed: x.possible - x.done - pendingToday }
     })
     .filter(h => h.possible > 0)
   const avgHabitRate = habits.length ? Math.round(habits.reduce((n, h) => n + h.done / h.possible, 0) / habits.length * 100) : null
@@ -325,6 +326,7 @@ export function buildAnalytics(s: AppState, range: RangeId, now: Date): Analytic
   for (let n = 1; n <= monthDays; n++) {
     const d = new Date(today.getFullYear(), today.getMonth(), n)
     const past = d <= today
+    const isToday = d.getTime() === today.getTime()
     const ts = tasksOn(s, d)
     const doneToday = past ? ts.filter(t => habitDone(s, t, d)).length : 0
     if (doneToday > 0) activeDays++
@@ -333,7 +335,12 @@ export function buildAnalytics(s: AppState, range: RangeId, now: Date): Analytic
       const x = mc.get(t.catId)
       if (!x) continue
       x.possible++
-      if (past) { x.due++; if (habitDone(s, t, d)) x.done++ }
+      // A day only counts as passed once it is over. Today's unchecked tasks are still pending, not missed.
+      if (past) {
+        const done = habitDone(s, t, d)
+        if (done) x.done++
+        if (done || !isToday) x.due++
+      }
     }
   }
   const mCats = [...mc.values()].filter(c => c.possible > 0)

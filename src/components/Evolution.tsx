@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { GOAL_TERMS, type AppState, type Goal, type GoalTerm } from '../lib/core'
+import GoalJourneyModal from './GoalJourneyModal'
 import { STAGES, badgeSrc, buildEvolution, type Achievement, type GoalView, type GrowthArea } from '../lib/evolution'
 import { auraColors, useHeroBg } from '../lib/evolutionHero'
 import { isHabit } from '../lib/habitStats'
@@ -16,7 +17,7 @@ interface Props {
   state: AppState
   onNavigate: (t: Tab) => void
   onAddGoal: (f: GoalFields) => void
-  onUpdateGoal: (id: string, f: Partial<GoalFields>) => void
+  onUpdateGoal: (id: string, f: Partial<Goal>) => void
   onRemoveGoal: (id: string) => void
 }
 
@@ -105,15 +106,19 @@ const RING_U = 76
 const CIRC_U = 2 * Math.PI * RING_U
 
 /** The ultimate goal: the one big thing, shown apart from the everyday goals. */
-function UltimateCard({ g, now, ready, fmt, onSet, onEdit, onBump }: { g: GoalView | null; now: Date; ready: boolean; fmt: (d: Date) => string; onSet: () => void; onEdit: () => void; onBump?: () => void }) {
+function UltimateCard({ g, now, ready, fmt, onSet, onEdit, onBump, onOpen }: { g: GoalView | null; now: Date; ready: boolean; fmt: (d: Date) => string; onSet: () => void; onEdit: () => void; onBump?: () => void; onOpen: () => void }) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const pct = g?.pct ?? 0
+  const ambition = g?.goal.kind === 'ambition'
+  const span = g?.goal.deadline ? Math.max(1, Math.round((g.goal.deadline - g.goal.createdAt) / 86400000)) : 0
+  // A goal with steps shows the share of steps done; one without shows how much of the time to the target date has passed.
+  const pct = !g ? 0 : !ambition || g.measurable || g.done ? g.pct : span ? Math.min(100, Math.round(((g.daysIn - 1) / span) * 100)) : 0
   const unit = g?.goal.unit ? ` ${g.goal.unit}` : ''
   const days = g ? Math.max(1, Math.round((today - g.goal.createdAt) / 86400000) + 1) : 0
   const left = g ? Math.max(0, g.goal.target - g.current) : 0
-  const rate = g && days >= 7 ? g.current / days : 0
-  const eta = g && !g.done && rate > 0 ? new Date(today + Math.ceil(left / rate) * 86400000) : null
+  const rate = g && !ambition && days >= 7 ? g.current / days : 0
+  const eta = g && !ambition && !g.done && rate > 0 ? new Date(today + Math.ceil(left / rate) * 86400000) : null
+  const nextStep = g?.goal.milestones.find(m => !m.doneAt)
   const showEta = eta && eta.getFullYear() - now.getFullYear() < 10
   return (
     <section className="fade-up mt-12" style={delay(4)} aria-labelledby="ev-ult">
@@ -129,8 +134,13 @@ function UltimateCard({ g, now, ready, fmt, onSet, onEdit, onBump }: { g: GoalVi
             </svg>
             <span className="absolute inset-0 grid place-items-center text-center">
               {g ? (
-                <span><span className="flex items-start justify-center text-5xl font-semibold leading-none tabular-nums">{pct}<span className="mt-1.5 text-base font-medium text-ink/55">%</span></span>
-                  <span className="mt-1.5 block text-[11px] uppercase tracking-[0.18em] text-ink/50">{g.done ? 'Reached' : 'Complete'}</span></span>
+                ambition && !g.measurable && !g.done ? (
+                  <span><span className="block text-5xl font-semibold leading-none tabular-nums">{g.goal.deadline ? Math.max(0, g.daysLeft ?? 0) : g.daysIn}</span>
+                    <span className="mt-1.5 block text-[11px] uppercase tracking-[0.18em] text-ink/50">{g.goal.deadline ? 'days left' : g.daysIn === 1 ? 'day in' : 'days in'}</span></span>
+                ) : (
+                  <span><span className="flex items-start justify-center text-5xl font-semibold leading-none tabular-nums">{pct}<span className="mt-1.5 text-base font-medium text-ink/55">%</span></span>
+                    <span className="mt-1.5 block text-[11px] uppercase tracking-[0.18em] text-ink/50">{g.done ? 'Reached' : 'Complete'}</span></span>
+                )
               ) : <Icon name="goal" className="size-12 text-[#f0b45a]/70" />}
             </span>
           </div>
@@ -138,6 +148,31 @@ function UltimateCard({ g, now, ready, fmt, onSet, onEdit, onBump }: { g: GoalVi
           <div className="min-w-0">
             <p id="ev-ult" className={`${eyebrow} text-[#f0b45a]`}>Ultimate goal</p>
             {g ? (
+              ambition ? (
+              <>
+                <h2 className="mt-2 break-words text-3xl font-semibold leading-tight sm:text-4xl">{g.goal.title}</h2>
+                {g.goal.why && <p className="mt-2 max-w-xl text-sm italic leading-relaxed text-ink/60">“{g.goal.why}”</p>}
+                {g.measurable && (
+                  <>
+                    <p className="mt-5 tabular-nums"><span className="text-3xl font-medium">{g.steps.done}</span><span className="text-ink/55"> of {g.steps.total} steps</span></p>
+                    <div className="relative mt-3 h-2 rounded-full bg-white/10">
+                      <div className="hb-w h-full rounded-full" style={{ width: ready ? `${pct}%` : '0%', background: 'linear-gradient(90deg,#f0b45a,#64e8d3)' }} />
+                    </div>
+                  </>
+                )}
+                <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-3 text-sm">
+                  <div><dt className="text-[11px] text-ink/50">On this goal</dt><dd className="tabular-nums">{plural(days, 'day')}</dd></div>
+                  {g.goal.deadline && <div><dt className="text-[11px] text-ink/50">Target date</dt><dd className="tabular-nums">{fmt(new Date(g.goal.deadline))}<span className="text-ink/50"> · {g.daysLeft !== null && g.daysLeft >= 0 ? `${plural(g.daysLeft, 'day')} left` : 'date passed'}</span></dd></div>}
+                  {g.support.length > 0 && <div><dt className="text-[11px] text-ink/50">Work this week</dt><dd className="tabular-nums">{plural(g.supportWeek, 'check-in')}</dd></div>}
+                  {nextStep && !g.done && <div className="min-w-0 max-w-full"><dt className="text-[11px] text-ink/50">Next step</dt><dd className="break-words">{nextStep.text}</dd></div>}
+                  {g.done && <div><dt className="text-[11px] text-ink/50">Status</dt><dd>Reached</dd></div>}
+                </dl>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <button type="button" onClick={onOpen} className="hb-pill"><Icon name="note" className="size-3.5" />Open journey</button>
+                  <button type="button" onClick={onEdit} className="hb-pill"><Icon name="edit" className="size-3.5" />Edit</button>
+                </div>
+              </>
+              ) : (
               <>
                 <h2 className="mt-2 break-words text-3xl font-semibold leading-tight sm:text-4xl">{g.goal.title}</h2>
                 <p className="mt-1.5 text-sm text-ink/55">{g.orphaned ? 'The habit this followed was deleted. Progress so far is kept.' : g.habit ? `Counts check-ins of ${g.habit.text}` : 'Updated by you'}</p>
@@ -159,10 +194,11 @@ function UltimateCard({ g, now, ready, fmt, onSet, onEdit, onBump }: { g: GoalVi
                   <button type="button" onClick={onEdit} className="hb-pill"><Icon name="edit" className="size-3.5" />Edit</button>
                 </div>
               </>
+              )
             ) : (
               <>
                 <h2 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">Every legend has one goal.</h2>
-                <p className="mt-3 max-w-lg text-sm leading-relaxed text-ink/65">Pick the one big thing your habits are all building towards. It gets its own spotlight here, with milestones and a pace estimate, so you never lose sight of it.</p>
+                <p className="mt-3 max-w-lg text-sm leading-relaxed text-ink/65">Pick the one big thing your habits are all building towards. It can be a number, or an ambition with no number on it, like winning a scholarship. It gets its own spotlight here so you never lose sight of it.</p>
                 <button type="button" onClick={onSet} className="mt-6 rounded-lg bg-gradient-to-r from-[#f0b45a] to-[#64e8d3] px-4 py-2.5 text-sm font-medium text-bg transition-opacity hover:opacity-90">Set your ultimate goal</button>
               </>
             )}
@@ -193,11 +229,13 @@ function AreaItem({ a, ready, onNavigate }: { a: GrowthArea; ready: boolean; onN
   )
 }
 
-function GoalRow({ g, tag, onEdit, onBump }: { g: GoalView; tag?: string; onEdit: () => void; onBump?: () => void }) {
+function GoalRow({ g, tag, onEdit, onOpen, onBump }: { g: GoalView; tag?: string; onEdit: () => void; onOpen: () => void; onBump?: () => void }) {
   const unit = g.goal.unit ? ` ${g.goal.unit}` : ''
+  const ambition = g.goal.kind === 'ambition'
+  const next = g.goal.milestones.find(m => !m.doneAt)
   return (
     <li className="flex items-center gap-1">
-      <button type="button" onClick={onEdit} aria-label={`Edit goal: ${g.goal.title}`} className="min-w-0 flex-1 rounded-xl px-2.5 py-3 text-left transition-colors hover:bg-white/[0.05]">
+      <button type="button" onClick={ambition ? onOpen : onEdit} aria-label={`${ambition ? 'Open' : 'Edit'} goal: ${g.goal.title}`} className="min-w-0 flex-1 rounded-xl px-2.5 py-3 text-left transition-colors hover:bg-white/[0.05]">
         <div className="flex items-baseline justify-between gap-3">
           <span className="flex min-w-0 items-center gap-2 text-[15px]">
             {g.done && <span className="grid size-4 shrink-0 place-items-center rounded-full bg-gradient-to-br from-mint to-teal text-bg"><Icon name="check" className="size-2.5" /></span>}
@@ -205,14 +243,19 @@ function GoalRow({ g, tag, onEdit, onBump }: { g: GoalView; tag?: string; onEdit
             {tag && <span className="shrink-0 rounded-full border border-white/10 px-1.5 py-px text-[10px] uppercase tracking-wider text-ink/50">{tag}</span>}
           </span>
           <span className="shrink-0 text-xs tabular-nums text-ink/60">
-            {g.done ? 'Completed' : <><span className="text-sm text-ink">{num(g.current)}</span> / {num(g.goal.target)}{unit}</>}
+            {g.done ? 'Completed'
+              : ambition ? (g.measurable ? <><span className="text-sm text-ink">{g.steps.done}</span> / {g.steps.total} steps</> : g.daysLeft !== null ? (g.daysLeft >= 0 ? `${plural(g.daysLeft, 'day')} left` : 'Date passed') : 'Ongoing')
+              : <><span className="text-sm text-ink">{num(g.current)}</span> / {num(g.goal.target)}{unit}</>}
           </span>
         </div>
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/15">
-          <div className="hb-w h-full rounded-full" style={{ width: `${g.pct}%`, background: bar(g.color) }} />
-        </div>
-        <p className="mt-1.5 truncate text-[11px] text-ink/45">
-          {g.orphaned ? 'The habit this followed was deleted. Progress so far is kept.'
+        {g.measurable && (
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/15">
+            <div className="hb-w h-full rounded-full" style={{ width: `${g.pct}%`, background: bar(g.color) }} />
+          </div>
+        )}
+        <p className={`${g.measurable ? 'mt-1.5' : 'mt-1'} truncate text-[11px] text-ink/45`}>
+          {ambition ? (g.done ? 'Reached. Open it to read your journey.' : next ? `Next: ${next.text}` : g.support.length ? `${plural(g.supportWeek, 'check-in')} this week from its habits` : 'Open it to add steps, log notes and track the work.')
+            : g.orphaned ? 'The habit this followed was deleted. Progress so far is kept.'
             : g.habit ? `Counts check-ins of ${g.habit.text}`
             : 'Updated by you'}
         </p>
@@ -250,6 +293,7 @@ export default function Evolution({ state, onNavigate, onAddGoal, onUpdateGoal, 
   const [ready, setReady] = useState(false) // lets bars and rings grow in from empty on first paint
   useEffect(() => { const r = requestAnimationFrame(() => setReady(true)); return () => cancelAnimationFrame(r) }, [])
   const [modal, setModal] = useState<'new' | Goal | null>(null)
+  const [journeyId, setJourneyId] = useState<string | null>(null)
   const [newTerm, setNewTerm] = useState<GoalTerm>('short')
   const [achOpen, setAchOpen] = useState(false)
   const [heroModal, setHeroModal] = useState(false)
@@ -285,7 +329,7 @@ export default function Evolution({ state, onNavigate, onAddGoal, onUpdateGoal, 
   const ultimate = ev.goals.find(g => g.goal.term === 'long') ?? null
   const rank = (t: GoalTerm) => GOAL_TERMS.findIndex(x => x.id === t)
   const others = ev.goals.filter(g => g !== ultimate).sort((a, b) => Number(a.done) - Number(b.done) || rank(a.goal.term) - rank(b.goal.term) || b.pct - a.pct)
-  const bump = (g: GoalView) => (!g.goal.habitId && !g.done ? () => onUpdateGoal(g.goal.id, { current: g.goal.current + 1 }) : undefined)
+  const bump = (g: GoalView) => (g.goal.kind === 'count' && !g.goal.habitId && !g.done ? () => onUpdateGoal(g.goal.id, { current: g.goal.current + 1 }) : undefined)
   const visible = STAGES.map((st, i) => ({ st, i })).filter(({ i }) => showAll || (i >= ev.stage - 1 && i <= ev.stage + 4))
 
   return (
@@ -425,7 +469,7 @@ export default function Evolution({ state, onNavigate, onAddGoal, onUpdateGoal, 
       </section>
 
       {/* Where am I going? */}
-      <UltimateCard g={ultimate} now={now} ready={ready} fmt={fmt} onSet={() => openNew('long')} onEdit={() => ultimate && setModal(ultimate.goal)} onBump={ultimate ? bump(ultimate) : undefined} />
+      <UltimateCard g={ultimate} now={now} ready={ready} fmt={fmt} onSet={() => openNew('long')} onEdit={() => ultimate && setModal(ultimate.goal)} onBump={ultimate ? bump(ultimate) : undefined} onOpen={() => ultimate && setJourneyId(ultimate.goal.id)} />
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <section className="glass fade-up rounded-2xl p-5 sm:p-6" style={delay(4)} aria-labelledby="ev-goals">
@@ -435,12 +479,12 @@ export default function Evolution({ state, onNavigate, onAddGoal, onUpdateGoal, 
           </div>
           {others.length === 0 ? (
             <div className="py-2">
-              <p className="text-sm leading-relaxed text-ink/70">Short term and mid term goals live here, like 60 workouts or 12 books. Link a goal to a habit and EVOLVE counts it for you.</p>
+              <p className="text-sm leading-relaxed text-ink/70">Short term and mid term goals live here. A goal can be a number (60 workouts, 12 books) or an ambition with no number, like winning a scholarship, tracked through steps, the habits that feed it and your own notes.</p>
               <button type="button" onClick={() => openNew('short')} className="mt-4 rounded-lg border border-white/10 px-3.5 py-2 text-sm transition-colors hover:border-teal/40 hover:text-teal">Set your first goal</button>
             </div>
           ) : (
             <ul className="-mx-2.5 divide-y divide-white/10">
-              {others.map(g => <GoalRow key={g.goal.id} g={g} tag={GOAL_TERMS[rank(g.goal.term)]?.label} onEdit={() => setModal(g.goal)} onBump={bump(g)} />)}
+              {others.map(g => <GoalRow key={g.goal.id} g={g} tag={GOAL_TERMS[rank(g.goal.term)]?.label} onEdit={() => setModal(g.goal)} onOpen={() => setJourneyId(g.goal.id)} onBump={bump(g)} />)}
             </ul>
           )}
         </section>
@@ -474,6 +518,10 @@ export default function Evolution({ state, onNavigate, onAddGoal, onUpdateGoal, 
         </section>
       </div>
 
+      {journeyId && (() => {
+        const jg = ev.goals.find(x => x.goal.id === journeyId)
+        return jg ? <GoalJourneyModal g={jg} now={now} fmt={fmt} onUpdate={f => onUpdateGoal(jg.goal.id, f)} onEdit={() => { setJourneyId(null); setModal(jg.goal) }} onClose={() => setJourneyId(null)} /> : null
+      })()}
       {heroModal && <HeroBackdropModal bg={bg} stage={ev.stage} custom={wall?.kind ?? null} onChange={setBg} onFile={setWallFile} onClear={clearWall} onClose={() => setHeroModal(false)} />}
       {modal && (
         <GoalModal

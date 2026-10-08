@@ -1,5 +1,5 @@
 import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { XP_PER_TASK, dayKey, loadState, saveState, startOfDay, type AppState, type Goal, type HabitFields } from './lib/core'
+import { XP_PER_TASK, dayKey, loadState, saveState, startOfDay, type AppState, type Goal, type GoalFields, type HabitFields } from './lib/core'
 import { DEFAULT_WALLPAPER, useSceneSettings, useWallpaper } from './lib/wallpaper'
 import { usePreferences } from './lib/preferences'
 import Home from './components/Home'
@@ -174,17 +174,17 @@ export default function App() {
 
   const setName = (name: string) => setState(s => ({ ...s, name }))
 
-  // Goals. A goal linked to a habit keeps no progress of its own: Evolution counts the habit's check-ins since `createdAt`.
-  type GoalFields = Pick<Goal, 'title' | 'target' | 'unit' | 'habitId' | 'term'> & { current: number }
+  // Goals. A count goal linked to a habit keeps no progress of its own: Evolution counts the habit's check-ins since `createdAt`.
+  // An ambition keeps its steps, notes and supporting habits on the goal itself.
   const addGoal = (f: GoalFields) =>
-    setState(s => ({ ...s, goals: [...s.goals, { id: crypto.randomUUID(), createdAt: startOfDay(new Date()), ...f }] }))
-  const updateGoal = (id: string, f: Partial<GoalFields>) =>
+    setState(s => ({ ...s, goals: [...s.goals, { id: crypto.randomUUID(), createdAt: startOfDay(new Date()), notes: [], ...f }] }))
+  const updateGoal = (id: string, f: Partial<Goal>) =>
     setState(s => ({
       ...s,
       goals: s.goals.map(g => {
         if (g.id !== id) return g
-        // Pointing a goal at a different habit starts the count from today.
-        const relinked = 'habitId' in f && f.habitId !== g.habitId
+        // Pointing a count goal at a different habit starts the count from today.
+        const relinked = g.kind === 'count' && 'habitId' in f && f.habitId !== g.habitId
         return { ...g, ...f, createdAt: relinked ? startOfDay(new Date()) : g.createdAt }
       }),
     }))

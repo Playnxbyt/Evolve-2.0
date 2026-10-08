@@ -1545,14 +1545,14 @@ html[data-motion] .orb-core > i, html[data-motion] .orb-glow, html[data-motion] 
 
 /* ==========================================================================
    Focus card resize on laptops (kept last on purpose).
-   The refraction filter (url(#lg-refract): SVG displacement map) must be rebuilt every frame while a glass
-   card changes size, which freezes the wallpaper behind it until the animation ends. While the hero is
-   resizing (<hero data-moving>, set in Home.tsx) its glass uses the plain frosted blur instead; the
-   refraction comes back the moment the card is at rest. The wallpaper itself is never paused.
+   The refraction filter (url(#lg-refract): SVG displacement map) is rebuilt every frame while a glass card
+   changes size, which froze the wallpaper (it looked like it did not grow) until the animation ended.
+   Swapping the filter on and off around the animation made the glass visibly snap at both ends, so glass
+   inside the home hero simply always uses the plain frosted blur: nothing changes when the card opens or closes.
    ========================================================================== */
 @media (pointer: fine) {
-  html[data-refract] [data-moving] .glass {
-    -webkit-backdrop-filter: blur(6px) saturate(190%) brightness(1.08) !important;
-    backdrop-filter: blur(6px) saturate(190%) brightness(1.08) !important;
+  html[data-refract] .hero-glass .glass {
+    -webkit-backdrop-filter: blur(6px) saturate(190%) brightness(1.08);
+    backdrop-filter: blur(6px) saturate(190%) brightness(1.08);
   }
 }
