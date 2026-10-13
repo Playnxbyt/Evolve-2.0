@@ -12,6 +12,7 @@ import HeroBackdropModal from './HeroBackdropModal'
 import LiveScene from './LiveScene'
 import TopBar from './TopBar'
 import type { Tab } from './Sidebar'
+import { isTouchDevice } from '../lib/device'
 
 interface Props {
   state: AppState
@@ -302,6 +303,7 @@ export default function Evolution({ state, onNavigate, onAddGoal, onUpdateGoal, 
   const heroRef = useRef<HTMLElement>(null)
   const frame = useRef(0)
   const nudge = (e: PointerEvent<HTMLElement>) => {
+    if (e.pointerType === 'touch' || isTouchDevice()) return
     const el = heroRef.current
     if (!el || frame.current) return
     const { clientX, clientY } = e

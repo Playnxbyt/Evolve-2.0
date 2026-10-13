@@ -11,19 +11,17 @@ function WallVideo({ url, style }: { url: string; style: CSSProperties }) {
   useEffect(() => {
     const v = ref.current
     if (!v) return
-    // Rests while the app is in the background, and while the sidebar is resizing. Cards expanding (data-motion) no longer pause it.
-    const root = document.documentElement
+    // Keep wallpaper playback uninterrupted during scrolling. Pause only while the
+    // tab is hidden, then resume when it becomes visible again.
     const sync = () => {
-      const resting = document.hidden || root.hasAttribute('data-sb-moving')
-      if (resting) v.pause(); else v.play().catch(() => { /* needs a gesture: stays on its first frame */ })
+      if (document.hidden) v.pause()
+      else v.play().catch(() => { /* autoplay may need a gesture */ })
     }
     document.addEventListener('visibilitychange', sync)
-    const mo = new MutationObserver(sync)
-    mo.observe(root, { attributes: true, attributeFilter: ['data-sb-moving'] })
-    return () => { document.removeEventListener('visibilitychange', sync); mo.disconnect() }
+    return () => document.removeEventListener('visibilitychange', sync)
   }, [])
   return (
-    <video ref={ref} key={src} src={src} autoPlay muted loop playsInline preload="auto" disablePictureInPicture disableRemotePlayback
+    <video ref={ref} key={src} src={src} autoPlay muted loop playsInline preload={document.documentElement.dataset.visuals === 'minimal' ? 'metadata' : 'auto'} disablePictureInPicture disableRemotePlayback
       className="wall-blur" style={style} onError={() => { if (src !== url) setSrc(url) }} />
   )
 }
@@ -44,7 +42,11 @@ export default function Backdrop({ className, media, scene, blur, dim }: Props) 
   // The soft look (saturation up, slightly darker, picture overscanned so blurred edges never show) fades out as the blur goes to 0.
   const k = Math.min(blur / 20, 1)
   const over = Math.min(8, blur / 5)
-  const filter = blur > 0 ? `blur(${blur}px) saturate(${1 + 0.3 * k}) brightness(${1 - 0.15 * k})` : 'none'
+  // Keep the user's blur effect in Minimal mode, but cap the expensive full-screen
+  // blur on phones so moving wallpapers remain smoother while scrolling.
+  const minimal = typeof document !== 'undefined' && document.documentElement.dataset.visuals === 'minimal'
+  const effectiveBlur = minimal ? Math.min(blur, 6) : blur
+  const filter = effectiveBlur > 0 ? `blur(${effectiveBlur}px) saturate(${1 + 0.3 * k}) brightness(${1 - 0.15 * k})` : 'none'
   // Keep the enlarged wallpaper centered as blur changes. Expanding via inset + width/height
   // can trigger positioning/rounding differences in browsers, making the image drift sideways.
   const fit = {
@@ -53,7 +55,9 @@ export default function Backdrop({ className, media, scene, blur, dim }: Props) 
     top: '50%',
     width: `${100 + 2 * over}%`,
     height: `${100 + 2 * over}%`,
-    transform: 'translate(-50%, -50%)',
+    transform: 'translate3d(-50%, -50%, 0)',
+    backfaceVisibility: 'hidden' as const,
+    WebkitBackfaceVisibility: 'hidden' as const,
   }
   const style = { filter, ...fit }
   const shade = <div className="absolute inset-0" style={{ backgroundColor: `rgba(3, 9, 14, ${dim})` }} />

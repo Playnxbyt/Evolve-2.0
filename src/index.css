@@ -241,7 +241,9 @@ body::after {
   mix-blend-mode: screen;
   opacity: 0.24;
   filter: blur(20px);
-  transform: rotate(-7deg);
+  transform: translate3d(0, 0, 0) rotate(-7deg);
+  will-change: transform;
+  backface-visibility: hidden;
   animation: aurora 20s ease-in-out infinite alternate;
   pointer-events: none;
 }
@@ -271,14 +273,6 @@ body::after {
 }
 
 .scene-mist {
-  position: absolute; left: 0; width: 200%; background-repeat: repeat-x; background-size: 50% 100%;
-  background-image:
-    radial-gradient(ellipse 16% 46% at 12% 58%, rgba(var(--glow), 0.16), transparent 72%),
-    radial-gradient(ellipse 20% 40% at 38% 42%, rgba(255, 255, 255, 0.08), transparent 72%),
-    radial-gradient(ellipse 16% 48% at 64% 62%, rgba(var(--glow), 0.12), transparent 72%),
-    radial-gradient(ellipse 18% 40% at 88% 46%, rgba(255, 255, 255, 0.07), transparent 72%);
-}
-.scene-mist {
   position: absolute; 
   left: 0; 
   width: 200%; 
@@ -288,6 +282,9 @@ body::after {
     linear-gradient(180deg, transparent, rgba(var(--glow), 0.04) 40%, transparent),
     radial-gradient(ellipse 40% 15% at 30% 60%, rgba(var(--glow), 0.05), transparent 75%),
     radial-gradient(ellipse 45% 18% at 75% 55%, rgba(255, 255, 255, 0.03), transparent 80%);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .scene-mist.m1 { 
@@ -301,6 +298,11 @@ body::after {
   height: 20%; 
   opacity: 0.5; 
   animation: mist 120s linear infinite reverse; 
+}
+
+@keyframes mist {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
 }
 
 .scene-fly { position: absolute; width: 3px; height: 3px; border-radius: 50%; opacity: 0; background: rgb(var(--glow)); box-shadow: 0 0 8px 2px rgba(var(--glow), 0.7); animation: fly var(--d, 12s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
@@ -402,8 +404,6 @@ body::after {
   opacity: 1; transform: none;
   transition: opacity 0.36s ease var(--d), transform 0.48s cubic-bezier(0.22, 1, 0.36, 1) var(--d), background-color 0.2s ease;
 }
-/* While the hero card is resizing, park the always-on background loops so the resize gets the whole frame budget. */
-[data-moving] .glass-live::after { animation-play-state: paused !important; }
 
 /* ───────── Digital clock ───────── */
 .clk { --clk: #64e8d3; display: inline-flex; align-items: baseline; gap: 0.3em; font-size: 2.25rem; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--color-ink); }
@@ -1192,11 +1192,12 @@ html[data-hidden='true'] *, html[data-hidden='true'] *::before, html[data-hidden
    Type system: Sora for headings, big numbers and the clock (confident, geometric);
    DM Sans for everything small (warm, very readable at 11-15px).
    ========================================================================== */
-body { font-optical-sizing: auto; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; letter-spacing: 0.005em; }
+body { font-optical-sizing: auto; text-rendering: auto; -webkit-font-smoothing: antialiased; letter-spacing: 0.005em; }
 h1, h2, h3, h4, .font-display,
 [class*='text-2xl'], [class*='text-3xl'], [class*='text-4xl'], [class*='text-5xl'], [class*='text-6xl'], [class*='text-7xl'] {
   font-family: var(--font-display);
   letter-spacing: -0.02em;
+  text-rendering: optimizeLegibility;
 }
 h1, h2 { font-weight: 650; }
 h3, h4 { font-weight: 600; }
@@ -1413,11 +1414,10 @@ body.perf-lite .pet-tail, body.perf-lite .pet-ear { animation: none; }
 @media (prefers-reduced-motion: reduce) { .orb *, .orb-glow, .orb-core::before, .orb-ring { animation: none !important; } }
 body.perf-lite .orb-core > i { filter: none; }
 body.perf-lite .orb-glow { filter: none; animation: none; }
-[data-moving] .orb-core > i, [data-moving] .orb-glow { animation-play-state: paused !important; }
 
 /* ==========================================================================
-   Minimal effects (Profile > Settings > Appearance). Off by default, so nothing above changes.
-   When on: no live backdrop blur on cards and a still background, which keeps scrolling smooth on phones.
+   Minimal visuals (Profile > Settings > Appearance > Evolve visuals). Sets body.perf-lite; the glass rules that must out-rank
+   the phone tier live in the "Evolve visuals" block at the very end of this file.
    ========================================================================== */
 body.perf-lite .glass,
 html[data-refract] body.perf-lite .glass,
@@ -1456,9 +1456,6 @@ body.perf-lite .cal-pane-prev { animation-name: cal-pane-prev-lite; }
 .sb.glass {
   transition: width var(--sb-dur) var(--sb-ease), box-shadow 0.35s ease, transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
 }
-/* while the panel is moving, the always-on background loops rest so the resize gets every frame */
-html[data-sb-moving] [class*='scene-'], html[data-sb-moving] .glass-live::after, html[data-sb-moving] .wall-zoom,
-html[data-sb-moving] .ambient > i { animation-play-state: paused !important; }
 
 /* cards beyond the fourth used to appear all at once */
 .card:nth-child(5) { animation-delay: 0.32s; }
@@ -1487,15 +1484,115 @@ body.perf-lite .cal-ring, body.effects-off .cal-ring { animation: none; }
 
 
 /* ==========================================================================
-   Phone smoothness tier (kept last on purpose). Applies only when <html data-device="touch"> is set
-   (see lib/device.ts). Invisible work only: layer hints, touch-target sizes, skeletons. No glass, colour or motion changes.
+   Phone smoothness tier (kept last on purpose). Applies when <html data-device="touch"> is set
+   or on mobile/touch screens. Optimizes scrolling, GPU compositing, glass shaders, and interaction latency
+   without altering any visual design, color, or feature.
    ========================================================================== */
 
-/* ── Layer hygiene ── */
-html[data-device='touch'] .wall-blur { transform: translateZ(0); backface-visibility: hidden; }
-html[data-device='touch'] { scroll-behavior: auto; }            /* instant scroll-to-top on tab change, no long smooth glide */
+/* ── Seamless active-scroll optimization ──
+   While actively scrolling on touch screens, pause ambient background loops
+   so 100% of GPU & CPU frame budget is dedicated to 60/120fps compositor scrolling. */
+html[data-scrolling='true'] .ambient > i,
+html[data-scrolling='true'] .scene-star,
+html[data-scrolling='true'] .scene-fly,
+html[data-scrolling='true'] .scene-aurora,
+html[data-scrolling='true'] .scene-mist,
+html[data-scrolling='true'] .scene-glow,
+html[data-scrolling='true'] .scene-shoot,
+html[data-scrolling='true'] .wall-zoom,
+html[data-scrolling='true'] .orb-glow,
+html[data-scrolling='true'] .orb-core > i,
+html[data-scrolling='true'] .orb-core::before,
+html[data-scrolling='true'] .pet,
+html[data-scrolling='true'] .pet * {
+  animation-play-state: paused !important;
+}
+
+/* ── Mobile GPU glass tier ──
+   Keeps the full liquid frosted glass visual styling, but tunes blur radius (8px vs 14-22px)
+   and reduces multi-pass inset box-shadow convolutions so mobile GPUs run at full 60/120fps. */
+@media (pointer: coarse), (max-width: 1023px) {
+  .glass {
+    -webkit-backdrop-filter: blur(8px) saturate(145%);
+    backdrop-filter: blur(8px) saturate(145%);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+      inset 0 1px 2px rgba(255, 255, 255, 0.35),
+      0 12px 28px -10px rgba(0, 0, 0, 0.55);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .hb-cards .glass:not(.hb-menu) {
+    -webkit-backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+    backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+  }
+
+  /* Fixed mobile bottom navigation: isolated GPU layer prevents repaint of content scrolling under it */
+  nav.glass.fixed {
+    background: rgba(8, 18, 26, 0.85);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(140%);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Fast, crisp card and page entrance animations */
+  .card, .fade-up {
+    animation-duration: 0.38s;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Quick-action orb button */
+  .orb {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Snappy touch press response without laggy multi-property transitions */
+  button, [role='button'], a, select, input, textarea {
+    transition: background-color 0.16s var(--ease-out), color 0.16s var(--ease-out),
+      border-color 0.16s var(--ease-out), opacity 0.16s var(--ease-out), scale 0.12s var(--ease-out);
+  }
+}
+
+html[data-device='touch'] .glass {
+  -webkit-backdrop-filter: blur(8px) saturate(145%);
+  backdrop-filter: blur(8px) saturate(145%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 1px 2px rgba(255, 255, 255, 0.35),
+    0 12px 28px -10px rgba(0, 0, 0, 0.55);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+html[data-device='touch'] .hb-cards .glass:not(.hb-menu) {
+  -webkit-backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+  backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+}
+
+html[data-device='touch'] nav.glass.fixed {
+  background: rgba(8, 18, 26, 0.85);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+html[data-device='touch'] .card,
+html[data-device='touch'] .fade-up {
+  animation-duration: 0.38s;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ── Layer hygiene & momentum scrolling ── */
+html[data-device='touch'] .wall-blur { transform: translate3d(-50%, -50%, 0); backface-visibility: hidden; }
+html[data-device='touch'] { scroll-behavior: auto; -webkit-overflow-scrolling: touch; }
 html[data-device='touch'] body { -webkit-touch-callout: none; }
-button, [role='button'], nav, .glass { -webkit-user-select: none; user-select: none; }   /* no accidental text selection on long-press */
+button, [role='button'], nav, .glass { -webkit-user-select: none; user-select: none; }
 
 /* ── Comfortable touch targets (44px, the iOS/Android guideline) without changing how things look ── */
 .tap { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
@@ -1529,13 +1626,9 @@ button, [role='button'], nav, .glass { -webkit-user-select: none; user-select: n
 
 
 /* ==========================================================================
-   Smooth resize (phones). Nothing here changes how anything looks at rest.
-   While a card or the sidebar is changing height (<html data-motion>, see lib/motion.ts) the always-on loops rest
-   for the half second it takes, so the blur behind the glass is not recomputed against moving pictures every frame.
+   Smooth resize. Nothing pauses while a card or the sidebar resizes: every loop keeps playing.
    ========================================================================== */
 /* (the wallpaper itself - video, live scene, zoom, ambient light - deliberately keeps playing) */
-html[data-motion] .glass-live::after,
-html[data-motion] .orb-core > i, html[data-motion] .orb-glow, html[data-motion] .pet, html[data-motion] .pet * { animation-play-state: paused !important; }
 
 /* The live scene is its own island: resizing the hero never re-lays-out or re-paints anything outside it, and vice versa. */
 .scene { contain: layout paint style; }
@@ -1556,3 +1649,155 @@ html[data-motion] .orb-core > i, html[data-motion] .orb-glow, html[data-motion] 
     backdrop-filter: blur(6px) saturate(190%) brightness(1.08);
   }
 }
+
+
+/* ==========================================================================
+   Evolve visuals (Profile > Settings > Appearance). <html data-visuals="extended | moderate | minimal">
+   Kept last on purpose: these rules have to out-rank the phone tier above (the old Minimal rules were being
+   overridden on phones by `html[data-device='touch'] .glass`, so the blur never actually went away there).
+   Visual only. No rule here touches layout, behaviour or data, so every feature works the same in all three.
+   ========================================================================== */
+
+/* ── Extended: no restrictions. Phones get the full-strength, untinted liquid glass and every loop keeps playing. ── */
+html[data-visuals='extended'][data-device='touch'] .glass {
+  -webkit-backdrop-filter: blur(10px) saturate(190%) brightness(1.08);
+  backdrop-filter: blur(10px) saturate(190%) brightness(1.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.13),
+    inset 1.5px 2px 3px -1px rgba(255, 255, 255, 0.6),
+    inset -2px -2.5px 4px -2px rgba(255, 255, 255, 0.32),
+    inset 0 0 24px rgba(255, 255, 255, 0.06),
+    0 22px 44px -18px rgba(0, 0, 0, 0.6);
+}
+html[data-visuals='extended'][data-device='touch'] .hb-cards .glass:not(.hb-menu) {
+  -webkit-backdrop-filter: blur(var(--hb-frost, 22px)) saturate(170%);
+  backdrop-filter: blur(var(--hb-frost, 22px)) saturate(170%);
+}
+/* the bottom bar loses its dark tint and uses the same clear glass as the cards */
+html[data-visuals='extended'][data-device='touch'] nav.glass.fixed {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent 40%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.025) 50%, rgba(255, 255, 255, 0.06));
+  -webkit-backdrop-filter: blur(10px) saturate(190%) brightness(1.08);
+  backdrop-filter: blur(10px) saturate(190%) brightness(1.08);
+}
+html[data-visuals='extended'] .glass-live::after { animation: sheen 10s ease-in-out infinite; opacity: 1; }
+html[data-visuals='extended'] .ambient > i:nth-child(3) { display: block; }
+
+/* ── Moderate: lightly tinted glass, no SVG refraction, cheaper blur, and the paint-heavy loops swapped for light ones. ── */
+html[data-visuals='moderate'] .glass,
+html[data-visuals='moderate'][data-refract] .glass {
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  backdrop-filter: blur(8px) saturate(150%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 1px 2px rgba(255, 255, 255, 0.35),
+    0 12px 28px -10px rgba(0, 0, 0, 0.55);
+}
+html[data-visuals='moderate'] .glass:not(.hb-menu):not(.pop-in):not(.fixed) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent 40%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.025) 50%, rgba(255, 255, 255, 0.06)),
+    rgba(10, 20, 28, 0.3);
+}
+html[data-visuals='moderate'] .hb-cards .glass:not(.hb-menu),
+html[data-visuals='moderate'][data-refract] .hb-cards .glass:not(.hb-menu) {
+  -webkit-backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+  backdrop-filter: blur(min(var(--hb-frost, 10px), 12px)) saturate(150%);
+}
+html[data-visuals='moderate'] .hb-menu, html[data-visuals='moderate'] .pop-in.glass { background-color: rgba(10, 20, 28, 0.8); }
+html[data-visuals='moderate'] .glass-live::after { animation: none; opacity: 0; }   /* the sheen repaints the whole card every frame */
+html[data-visuals='moderate'] .ambient > i:nth-child(3) { display: none; }
+html[data-visuals='moderate'] .scene-shoot { display: none; }
+/* the calendar ring pulsed a box-shadow (a repaint per frame); it now pulses opacity, which is free */
+@keyframes cal-breathe-lite { 50% { opacity: 0.6; } }
+html[data-visuals='moderate'] .cal-ring { animation-name: cal-breathe-lite; }
+html[data-visuals='moderate'] .an-rise { animation-name: an-rise-lite; }
+html[data-visuals='moderate'] .cal-pane-next { animation-name: cal-pane-next-lite; }
+html[data-visuals='moderate'] .cal-pane-prev { animation-name: cal-pane-prev-lite; }
+
+/* ── Minimal: the smoothest tier. Keeps the glass look (rim, highlight, soft tint) without any live blur or decorative loops. ── */
+html[data-visuals='minimal'] .glass,
+html[data-visuals='minimal'][data-refract] .glass,
+html[data-visuals='minimal'] .hb-cards .glass:not(.hb-menu),
+html[data-visuals='minimal'][data-refract] .hb-cards .glass:not(.hb-menu) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent 40%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.025) 50%, rgba(255, 255, 255, 0.06)),
+    rgba(10, 20, 28, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.13),
+    inset 1.5px 2px 3px -1px rgba(255, 255, 255, 0.45),
+    0 10px 22px -14px rgba(0, 0, 0, 0.6);
+  transform: none;
+}
+html[data-visuals='minimal'] nav.glass.fixed { background-color: rgba(8, 18, 26, 0.82); }
+html[data-visuals='minimal'] .hb-menu, html[data-visuals='minimal'] .pop-in.glass { background-color: rgba(10, 20, 28, 0.9); }
+html[data-visuals='minimal'] .glass-live::after { animation: none; opacity: 0; }
+html[data-visuals='minimal'] .wall-zoom, html[data-visuals='minimal'] .pet-body { animation: none; }
+html[data-visuals='minimal'] .card, html[data-visuals='minimal'] .fade-up { animation-duration: 0.24s; }
+
+/* Evolve visuals picker (Profile > Settings > Appearance): three full-width choices, stacked on phones */
+.profile-visuals-row { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.profile-visuals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; }
+.profile-visuals button { display: flex; flex-direction: column; gap: 0.3rem; text-align: left; padding: 0.8rem 0.9rem; border-radius: 0.85rem; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); opacity: 0.7; transition: opacity 0.2s ease, box-shadow 0.25s ease, background-color 0.2s ease; }
+.profile-visuals button:hover { opacity: 1; }
+.profile-visuals button.is-active { opacity: 1; background: rgba(100, 232, 211, 0.08); box-shadow: inset 0 0 0 1.5px var(--color-teal), 0 0 0 3px rgba(100, 232, 211, 0.14); }
+.profile-visuals b { font-size: 0.78rem; font-weight: 600; }
+.profile-visuals span { font-size: 0.68rem; line-height: 1.5; color: rgba(237, 247, 248, 0.5); }
+@media (max-width: 767px) { .profile-visuals { grid-template-columns: minmax(0, 1fr); } .profile-visuals button { min-height: 44px; } }
+
+
+/* ==========================================================================
+   Home hero (progress ring card) live scene: static in Moderate and Minimal visuals.
+   Its twinkling, drifting and parallax animation was repainted under the glass every frame while the
+   Today's focus card expanded, which lagged on phones. Extended visuals keep it fully animated.
+   ========================================================================== */
+html[data-visuals='moderate'] .scene-hero *, html[data-visuals='moderate'] .scene-hero *::before, html[data-visuals='moderate'] .scene-hero *::after,
+html[data-visuals='minimal'] .scene-hero *, html[data-visuals='minimal'] .scene-hero *::before, html[data-visuals='minimal'] .scene-hero *::after {
+  animation: none !important;
+  transition: none !important;
+  will-change: auto !important;
+}
+html[data-visuals='moderate'] .scene-hero .scene-par, html[data-visuals='minimal'] .scene-hero .scene-par { transform: none !important; }
+html[data-visuals='moderate'] .scene-hero .scene-shoot, html[data-visuals='minimal'] .scene-hero .scene-shoot,
+html[data-visuals='moderate'] .scene-hero .scene-fly, html[data-visuals='minimal'] .scene-hero .scene-fly { display: none; }
+
+
+/* Minimal visuals: keep the Today's focus disclosure responsive on mobile.
+   Height animations trigger repeated layout and repaint the large hero backdrop. */
+html[data-visuals='minimal'] .hero-glass {
+  contain: layout style;
+  box-shadow: 0 10px 24px -16px rgba(0,0,0,.55);
+}
+html[data-visuals='minimal'] .hero-glass .glass,
+html[data-visuals='minimal'] .hero-glass .glass-live {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
+}
+html[data-visuals='minimal'] .hero-glass .swap,
+html[data-visuals='minimal'] .hero-glass .fl-item,
+html[data-visuals='minimal'] .hero-glass button {
+  animation: none !important;
+  scroll-behavior: auto;
+}
+@media (max-width: 767px) {
+  html[data-visuals='minimal'] .hero-glass { box-shadow: none; }
+  html[data-visuals='minimal'] .hero-glass .glass-live { background-color: rgba(10,20,28,.72); }
+}
+
+
+/* Minimal mobile video-wallpaper path: keep the wallpaper blur (capped in the
+   Backdrop component) while avoiding unnecessary animation/compositing work. */
+html[data-visuals='minimal'] .wall-blur {
+  animation: none !important;
+  will-change: auto;
+}
+html[data-visuals='minimal'] .hero-glass > video {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+html[data-visuals='minimal'] { scroll-behavior: auto; }

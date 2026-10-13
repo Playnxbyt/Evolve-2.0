@@ -55,6 +55,7 @@ export default function TrendChart({ buckets: all, kindLabel, replay }: { bucket
   const act = active !== null ? pts.find(p => p.i === active) : undefined
 
   const move = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch' && e.type === 'pointermove') return
     if (!pts.length) return
     const r = e.currentTarget.getBoundingClientRect()
     const at = ((e.clientX - r.left) / r.width) * 100
